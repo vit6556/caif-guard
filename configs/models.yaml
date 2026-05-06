@@ -1,0 +1,16 @@
+target_models:
+  # Default set chosen for fast local evaluation and diversity of model families.
+  - llama3.2:3b
+  - qwen2.5:3b-instruct
+  - gemma2:2b
+
+guard_models:
+  llama_guard: llama-guard3:1b
+  nemo_self_check: llama3.2:1b
+
+
+modes:
+  raw: http://gateway_raw:8000
+  nemo: http://gateway_nemo:8000
+  llama_guard: http://gateway_llama_guard:8000
+  caif: http://gateway_caif:8000

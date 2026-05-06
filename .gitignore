@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+reports/*
+!reports/.gitkeep
+data/workspace/outbox.jsonl
+data/workspace/http_posts.jsonl

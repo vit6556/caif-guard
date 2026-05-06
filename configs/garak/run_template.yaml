@@ -1,0 +1,5 @@
+run:
+  generations: GARAK_GENERATIONS
+  soft_probe_prompt_cap: GARAK_PROMPT_CAP
+reporting:
+  confidence_interval_method: GARAK_CONFIDENCE_INTERVAL_METHOD

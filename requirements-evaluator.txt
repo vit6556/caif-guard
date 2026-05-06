@@ -1,0 +1,3 @@
+httpx>=0.26
+PyYAML>=6.0
+garak>=0.11

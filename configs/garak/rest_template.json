@@ -1,0 +1,30 @@
+{
+  "rest": {
+    "RestGenerator": {
+      "name": "local-agent-benchmark",
+      "uri": "TARGET_URL/v1/chat/completions",
+      "method": "post",
+      "request_timeout": GARAK_REQUEST_TIMEOUT,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "req_template_json_object": {
+        "model": "TARGET_MODEL",
+        "messages": [
+          {
+            "role": "user",
+            "content": "$INPUT"
+          }
+        ],
+        "max_tokens": GARAK_MAX_TOKENS,
+        "temperature": 0,
+        "stream": false,
+        "metadata": {
+          "source": "garak"
+        }
+      },
+      "response_json": true,
+      "response_json_field": "$.choices[0].message.content"
+    }
+  }
+}

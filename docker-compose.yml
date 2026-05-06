@@ -1,0 +1,74 @@
+services:
+  gateway_raw:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    environment:
+      GUARD_MODE: raw
+      OPENAI_API_KEY: dummy
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./reports:/workspace/reports
+      - ./data:/workspace/data
+      - ./configs:/workspace/configs
+
+  gateway_nemo:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    environment:
+      GUARD_MODE: nemo
+      OPENAI_API_KEY: dummy
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./reports:/workspace/reports
+      - ./data:/workspace/data
+      - ./configs:/workspace/configs
+
+  gateway_llama_guard:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    environment:
+      GUARD_MODE: llama_guard
+      OPENAI_API_KEY: dummy
+    ports:
+      - "8003:8000"
+    volumes:
+      - ./reports:/workspace/reports
+      - ./data:/workspace/data
+      - ./configs:/workspace/configs
+
+  gateway_caif:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    environment:
+      GUARD_MODE: caif
+      OPENAI_API_KEY: dummy
+    ports:
+      - "8004:8000"
+    volumes:
+      - ./reports:/workspace/reports
+      - ./data:/workspace/data
+      - ./configs:/workspace/configs
+
+  evaluator:
+    build:
+      context: .
+      dockerfile: docker/evaluator.Dockerfile
+    environment:
+      PROMPTFOO_DISABLE_TELEMETRY: "1"
+      PROMPTFOO_DISABLE_UPDATE: "1"
+      PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION: "true"
+      OPENAI_API_KEY: dummy
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    depends_on:
+      - gateway_raw
+      - gateway_nemo
+      - gateway_llama_guard
+      - gateway_caif

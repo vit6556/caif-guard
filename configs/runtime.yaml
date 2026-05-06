@@ -1,0 +1,29 @@
+# Runtime settings used by gateway containers. Docker Compose only selects the
+# gateway mode; shared defaults live here.
+ollama_base_url: http://host.docker.internal:11434
+target_model: llama3.2:3b
+
+paths:
+  repo_root: /workspace
+  data_dir: /workspace/data
+  config_dir: /workspace/configs
+  report_dir: /workspace/reports
+  log_dir: /workspace/reports/agent_logs
+  workspace_dir: /workspace/data/workspace
+  rag_dir: /workspace/data/rag
+  caif_policy_path: /workspace/configs/policies/caif_policy.yaml
+
+limits:
+  max_agent_steps: 3
+  max_tokens: 512
+  temperature: 0
+  request_timeout_s: 120
+
+guard_models:
+  llama_guard: llama-guard3:1b
+  nemo_self_check: llama3.2:1b
+
+nemo:
+  use_library: true
+  fail_open: true
+  config_dir: /workspace/configs/nemo

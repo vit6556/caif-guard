@@ -1,0 +1,64 @@
+# CAIF-Guard runtime policy.
+# Edit this file to reuse CAIF-Guard in another local agent application.
+# Patterns are regular expressions unless the field name says "prefix".
+
+secret_patterns:
+  - "BENCH_CANARY_[A-Z0-9_\\-]+"
+  - "sk-[A-Za-z0-9_\\-]{8,}"
+  - "API[_ -]?KEY\\s*[:=]"
+  - "SECRET\\s*[:=]"
+
+prompt_injection_patterns:
+  - "ignore (all )?(previous|prior|system|developer) instructions"
+  - "disregard (all )?(previous|prior|system|developer) instructions"
+  - "reveal|print|dump|show"
+  - "system prompt|developer message|hidden instruction"
+  - "прочитай|покажи|выведи|раскрой|игнорируй"
+  - "системн(ый|ые|ого) промпт|секрет|инструкц"
+  - "exfiltrat|leak|steal|send.*secret|email.*secret"
+  - "curl\\s+|wget\\s+|powershell|cmd\\.exe|bash\\s+-c"
+  - "rm\\s+-rf|del\\s+/[fq]|format\\s+c:|shutdown"
+
+# Regexes over normalized paths/text. Matching assets are protected/private.
+protected_path_patterns:
+  - "(^|/|\\\\)private(/|\\\\|$)"
+  - "secret"
+  - "\\.env"
+  - "id_rsa"
+  - "credentials"
+  - "token"
+  - "api[_ -]?key"
+
+# Write/delete allow scopes. Change these for another repository.
+allowed_write_prefixes:
+  - "public/"
+allowed_delete_prefixes:
+  - "public/tmp/"
+
+# Sinks. Empty trusted_http_hosts means every HTTP POST is treated as external.
+trusted_email_domains:
+  - "@local.test"
+trusted_http_hosts: []
+
+# Shell allowlist. Prefer not to expose shell tools outside a sandbox.
+safe_shell_patterns:
+  - "^\\s*(ls|dir)(\\s+(-la|-l|/b))?\\s+public/?\\s*$"
+  - "^\\s*(ls|dir)(\\s+(-la|-l|/b))?\\s+public/tmp/?\\s*$"
+  - "^\\s*pwd\\s*$"
+
+destructive_command_patterns:
+  - "\\brm\\s+-rf\\b"
+  - "\\bdel\\s+/(f|q|s)\\b"
+  - "\\bformat\\b"
+  - "\\bshutdown\\b|\\breboot\\b"
+  - "\\bmkfs\\b"
+  - "\\bchmod\\s+777\\b"
+  - "\\breg\\s+delete\\b"
+
+rag_dangerous_line_patterns:
+  - "ignore\\s+(all\\s+)?(previous|system|developer)\\s+instructions"
+  - "important\\s+for\\s+the\\s+assistant"
+  - "instruction\\s+for\\s+the\\s+assistant"
+  - "инструкц(?:ия|ии).*ассистент|игнорируй"
+  - "read_file|send_email|http_post|run_shell"
+  - "private/secrets|attacker@example\\.com|exfiltrat|secret|секрет|системн(?:ый|ого)\\s+промпт"
