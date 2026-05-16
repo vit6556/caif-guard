@@ -1,10 +1,8 @@
-# Garak settings used by scripts/run_all.py during the full benchmark.
-# model_limit: null means scan every model selected for the benchmark.
-probes: promptinject.HijackHateHumans
-prompt_cap: 8
-request_timeout_s: 30
-max_tokens: 128
-subprocess_timeout_s: 90
+probes: promptinject.HijackHateHumans,promptinject.HijackKillHumans
+prompt_cap: 20
+request_timeout_s: 90
+max_tokens: 64
+subprocess_timeout_s: 480
 generations: 1
 parallel_attempts: 1
 confidence_interval_method: none

@@ -47,11 +47,6 @@ def load_garak_config() -> dict[str, Any]:
     }
 
 
-def load_runtime_config() -> dict[str, Any]:
-    config_path = ROOT / "configs/runtime.yaml"
-    return load_yaml(config_path) if config_path.exists() else {}
-
-
 def safe_name(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", value)
 
@@ -377,7 +372,6 @@ def parse_promptfoo_reports(run_dir: Path, subdir_name: str) -> list[dict[str, A
                     continue
                 kind = promptfoo_case_kind(item)
                 success = bool(item.get("success"))
-                has_error = False
                 if kind == "benign":
                     row["benign_total"] += 1
                     if success:
@@ -390,8 +384,6 @@ def parse_promptfoo_reports(run_dir: Path, subdir_name: str) -> list[dict[str, A
                         row["attack_passed"] += 1
                     else:
                         row["attack_failed"] += 1
-                if has_error:
-                    row["errors"] += 1
 
             prompts = (data.get("results") or {}).get("prompts") or []
             metrics = (prompts[0].get("metrics") if prompts else {}) or {}
@@ -567,6 +559,15 @@ def write_evaluation_summary_by_tool(run_dir: Path) -> None:
         writer.writerows(rows)
 
 
+def _pct(num: int, den: int) -> str:
+    return f"{int(round(num / den * 100))}%" if den else "—"
+
+
+
+def _ok(value: int, total: int) -> str:
+    return "✅" if value == total else "⚠️" if value > 0 else "❌"
+
+
 def write_final_summary(run_dir: Path) -> None:
     """Rewrite SUMMARY.md after all evaluation tools have finished."""
     agent_rows = read_csv_rows(run_dir / "summary_by_model_mode.csv")
@@ -577,68 +578,135 @@ def write_final_summary(run_dir: Path) -> None:
     write_garak_summary_csv(run_dir, garak_rows)
     write_evaluation_summary_by_tool(run_dir)
 
-    md = [
+    models = sorted({r["model"] for r in agent_rows}) if agent_rows else []
+    modes = ["raw", "llama_guard", "nemo", "caif"]
+
+    md: list[str] = [
         "# Evaluation summary",
         "",
         f"Generated: {datetime.now().isoformat(timespec='seconds')}",
-        "",
-        "The summary is split by evaluation source. No aggregate score formula is calculated.",
+        f"Models: {', '.join(models) or '—'}",
         "",
     ]
 
+    # ── Security overview ────────────────────────────────────────────────────
+    md.extend(["## Security overview", ""])
+    md.append("> Aggregated across all models. ✅ = 100% · ⚠️ = partial · ❌ = 0%")
+    md.append("")
+    if agent_rows:
+        md.append("| mode | attacks prevented | benign pass | garak pass | avg latency |")
+        md.append("|---|---:|---:|---:|---:|")
+        for mode in modes:
+            rows_m = [r for r in agent_rows if r.get("mode") == mode]
+            if not rows_m:
+                continue
+            atk_prev = sum(int(r.get("attacks_without_success") or 0) for r in rows_m)
+            atk_tot = sum(int(r.get("attack_total") or 0) for r in rows_m)
+            ben_pass = sum(int(r.get("benign_passed") or 0) for r in rows_m)
+            ben_tot = sum(int(r.get("benign_total") or 0) for r in rows_m)
+            lat_avg = int(sum(int(r.get("avg_latency_ms") or 0) for r in rows_m) / len(rows_m))
+            gar_pass = sum(int(r.get("passed") or 0) for r in garak_rows if r.get("mode") == mode)
+            gar_tot = sum(int(r.get("total") or 0) for r in garak_rows if r.get("mode") == mode)
+            md.append(
+                f"| **{mode}** | {_ok(atk_prev, atk_tot)} {atk_prev}/{atk_tot} ({_pct(atk_prev, atk_tot)}) | "
+                f"{_ok(ben_pass, ben_tot)} {ben_pass}/{ben_tot} ({_pct(ben_pass, ben_tot)}) | "
+                f"{_ok(gar_pass, gar_tot)} {gar_pass}/{gar_tot} ({_pct(gar_pass, gar_tot)}) | "
+                f"{lat_avg} ms |"
+            )
+    md.append("")
+
+    # ── Latency ──────────────────────────────────────────────────────────────
+    md.extend(["## Latency (avg per request, ms)", ""])
+    if agent_rows:
+        lat_by_mode: dict[str, list[int]] = defaultdict(list)
+        for r in agent_rows:
+            v = int(r.get("avg_latency_ms") or 0)
+            if v:
+                lat_by_mode[r["mode"]].append(v)
+        md.append("| mode | avg ms | min ms | max ms |")
+        md.append("|---|---:|---:|---:|")
+        for mode in modes:
+            vals = lat_by_mode.get(mode, [])
+            if not vals:
+                continue
+            avg = int(sum(vals) / len(vals))
+            md.append(f"| **{mode}** | {avg} | {min(vals)} | {max(vals)} |")
+    md.append("")
+
+    # ── Internal agent scenarios ─────────────────────────────────────────────
     md.extend(["## 1. Internal agent scenarios", ""])
     if agent_rows:
-        md.append("| model | mode | benign passed/total | attacks prevented/total | attack successes | unsafe tool executed | secret leaks | secret tool accesses |")
-        md.append("|---|---|---:|---:|---:|---:|---:|---:|")
+        md.append("| model | mode | benign | attacks prevented | atk✗ | unsafe tool | secret leaks | secret accesses | latency |")
+        md.append("|---|---|---:|---:|---:|---:|---:|---:|---:|")
         for r in agent_rows:
+            bp = int(r.get("benign_passed") or 0)
+            bt = int(r.get("benign_total") or 0)
+            ap = int(r.get("attacks_without_success") or 0)
+            at_ = int(r.get("attack_total") or 0)
             md.append(
-                f"| {r.get('model')} | {r.get('mode')} | {r.get('benign_passed')}/{r.get('benign_total')} | "
-                f"{r.get('attacks_without_success')}/{r.get('attack_total')} | {r.get('attack_successes')} | "
-                f"{r.get('unsafe_tool_executed')} | {r.get('secret_leaks')} | {r.get('secret_tool_accesses')} |"
+                f"| {r.get('model')} | {r.get('mode')} | "
+                f"{_ok(bp, bt)} {bp}/{bt} | "
+                f"{_ok(ap, at_)} {ap}/{at_} | "
+                f"{r.get('attack_successes')} | "
+                f"{r.get('unsafe_tool_executed')} | "
+                f"{r.get('secret_leaks')} | "
+                f"{r.get('secret_tool_accesses')} | "
+                f"{r.get('avg_latency_ms')} ms |"
             )
     else:
         md.append("No internal agent scenario results found.")
     md.append("")
 
+    # ── Promptfoo ────────────────────────────────────────────────────────────
     md.extend(["## 2. Promptfoo static evaluation", ""])
     if promptfoo_static:
-        md.append("| model | mode | attack checks passed/total | attack failed | benign checks passed/total | benign failed | status |")
-        md.append("|---|---|---:|---:|---:|---:|---|")
+        md.append("| model | mode | attacks blocked | benign pass |")
+        md.append("|---|---|---:|---:|")
         for r in promptfoo_static:
-            status = r.get("status") or "ok"
-            if int(r.get("errors", 0) or 0):
-                status = f"{status}; errors={r.get('errors')}"
+            ap = int(r.get("attack_passed") or 0)
+            at_ = int(r.get("attack_total") or 0)
+            bp = int(r.get("benign_passed") or 0)
+            bt = int(r.get("benign_total") or 0)
             md.append(
-                f"| {r['model']} | {r['mode']} | {r['attack_passed']}/{r['attack_total']} | {r['attack_failed']} | "
-                f"{r['benign_passed']}/{r['benign_total']} | {r['benign_failed']} | {status} |"
+                f"| {r['model']} | {r['mode']} | "
+                f"{_ok(ap, at_)} {ap}/{at_} | "
+                f"{_ok(bp, bt)} {bp}/{bt} |"
             )
     else:
         md.append("Promptfoo static evaluation was skipped or no reports were found.")
     md.append("")
 
+    # ── Garak ────────────────────────────────────────────────────────────────
     md.extend(["## 3. Garak scan", ""])
     if garak_rows:
-        md.append("| model | mode | probe | passed/total | failed | status |")
-        md.append("|---|---|---|---:|---:|---|")
-        for r in garak_rows:
-            md.append(
-                f"| {r['model']} | {r['mode']} | {r['probe']} | {r['passed']}/{r['total']} | "
-                f"{r['failed']} | {r['status']} |"
-            )
+        probes = sorted({r["probe"] for r in garak_rows})
+        for probe in probes:
+            md.extend([f"### {probe}", ""])
+            md.append("| model | mode | passed/total | rate |")
+            md.append("|---|---|---:|---:|")
+            for r in garak_rows:
+                if r.get("probe") != probe:
+                    continue
+                p = int(r.get("passed") or 0)
+                t = int(r.get("total") or 0)
+                md.append(
+                    f"| {r['model']} | {r['mode']} | {p}/{t} | "
+                    f"{_ok(p, t)} {_pct(p, t)} |"
+                )
+            md.append("")
     else:
         md.append("Garak was skipped or no reports were found.")
-    md.append("")
+        md.append("")
 
+    # ── Notes ─────────────────────────────────────────────────────────────────
     md.extend(
         [
-            "## Notes",
+            "---",
             "",
-            "- `benign passed/total`: legitimate internal scenarios completed without unsafe actions or blocked safe tool calls.",
-            "- `attacks prevented/total`: internal attack scenarios where no secret leak, secret tool access or unsafe tool execution was observed.",
-            "- Promptfoo static results are split into attack checks and benign utility checks.",
-            "- A failed benign Promptfoo check usually means over-blocking, not a successful attack.",
-            "- Garak runs probe-based prompt-injection checks against the same gateway endpoints.",
-            "- `evaluation_summary_by_tool.csv` contains one combined table separated by evaluation source.",
+            "✅ = 100% · ⚠️ = partial · ❌ = 0% &nbsp;|&nbsp; "
+            "`atk✗` = successful attacks (lower is better) &nbsp;|&nbsp; "
+            "failed benign = over-blocking, not a security breach &nbsp;|&nbsp; "
+            "`evaluation_summary_by_tool.csv` for raw data",
         ]
     )
 
@@ -873,7 +941,7 @@ async def async_main(args: argparse.Namespace) -> None:
 
     mode_names = args.modes or default_modes
     models = selected(all_models, model_limit, args.models)
-    modes = {k: v for k, v in all_modes.items() if mode_names is None or k in set(mode_names)}
+    modes = {k: v for k, v in all_modes.items() if k in set(mode_names)}
     if not models:
         raise SystemExit("No models selected")
     if not modes:

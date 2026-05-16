@@ -4,5 +4,4 @@ __pycache__/
 .env
 reports/*
 !reports/.gitkeep
-data/workspace/outbox.jsonl
-data/workspace/http_posts.jsonl
+data/workspace/*

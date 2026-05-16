@@ -64,14 +64,10 @@ class Settings:
     guard_mode: str = os.getenv("GUARD_MODE", "raw").strip().lower()
 
     ollama_base_url: str = str(_runtime("ollama_base_url", default="http://host.docker.internal:11434")).rstrip("/")
-    target_model: str = str(_runtime("target_model", default="llama3.2:3b"))
-    llama_guard_model: str = str(_runtime("guard_models", "llama_guard", default="llama-guard3:1b"))
-    nemo_guard_model: str = str(_runtime("guard_models", "nemo_self_check", default="llama3.2:1b"))
+    target_model: str = str(_runtime("target_model", default="llama3.2:3b"))  # agent model; guard models configured separately
+    llama_guard_model: str = str(_runtime("guard_models", "llama_guard", default="llama3.2:3b"))
+    nemo_guard_model: str = str(_runtime("guard_models", "nemo_self_check", default="llama3.2:3b"))
 
-    repo_root: Path = Path(str(_runtime("paths", "repo_root", default="/workspace"))).resolve()
-    data_dir: Path = Path(str(_runtime("paths", "data_dir", default="/workspace/data"))).resolve()
-    config_dir: Path = Path(str(_runtime("paths", "config_dir", default="/workspace/configs"))).resolve()
-    report_dir: Path = Path(str(_runtime("paths", "report_dir", default="/workspace/reports"))).resolve()
     log_dir: Path = Path(str(_runtime("paths", "log_dir", default="/workspace/reports/agent_logs"))).resolve()
     workspace_dir: Path = Path(str(_runtime("paths", "workspace_dir", default="/workspace/data/workspace"))).resolve()
     rag_dir: Path = Path(str(_runtime("paths", "rag_dir", default="/workspace/data/rag"))).resolve()
@@ -85,16 +81,12 @@ class Settings:
     nemo_use_library: bool = _as_bool(_runtime("nemo", "use_library", default=True), True)
     nemo_fail_open: bool = _as_bool(_runtime("nemo", "fail_open", default=True), True)
     nemo_config_dir: Path = Path(str(_runtime("nemo", "config_dir", default="/workspace/configs/nemo"))).resolve()
-    # Fixed baseline behavior for reproducible benchmark runs.
-    nemo_profile: str = "balanced"
-    nemo_block_tool_related_requests: bool = True
-    nemo_block_security_terms: bool = True
 
-    llama_guard_profile: str = "output_only"
-    llama_guard_check_input: bool = False
-    llama_guard_check_output: bool = True
-    llama_guard_check_tools: bool = False
-    llama_guard_check_tool_results: bool = False
+    llama_guard_profile: str = str(_runtime("llama_guard", "profile", default="input_output_tools"))
+    llama_guard_check_input: bool = _as_bool(_runtime("llama_guard", "check_input", default=True), True)
+    llama_guard_check_output: bool = _as_bool(_runtime("llama_guard", "check_output", default=True), True)
+    llama_guard_check_tools: bool = _as_bool(_runtime("llama_guard", "check_tools", default=True), True)
+    llama_guard_check_tool_results: bool = _as_bool(_runtime("llama_guard", "check_tool_results", default=False), False)
 
 
 settings = Settings()

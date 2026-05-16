@@ -11,7 +11,6 @@ import httpx
 class LLMResponse:
     content: str
     latency_ms: int
-    raw: dict[str, Any]
 
 
 class OllamaClient:
@@ -47,7 +46,7 @@ class OllamaClient:
             data = response.json()
         latency_ms = int((time.perf_counter() - started) * 1000)
         message = data.get("message") or {}
-        return LLMResponse(content=str(message.get("content", "")), latency_ms=latency_ms, raw=data)
+        return LLMResponse(content=str(message.get("content", "")), latency_ms=latency_ms)
 
     async def list_models(self) -> list[str]:
         async with httpx.AsyncClient(timeout=self.timeout_s) as client:

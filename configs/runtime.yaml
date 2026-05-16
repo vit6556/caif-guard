@@ -20,8 +20,13 @@ limits:
   request_timeout_s: 120
 
 guard_models:
-  llama_guard: llama-guard3:1b
-  nemo_self_check: llama3.2:1b
+  llama_guard: llama3.2:3b
+  nemo_self_check: llama3.2:3b
+
+llama_guard:
+  check_input: true
+  check_tools: true
+  check_tool_results: false
 
 nemo:
   use_library: true

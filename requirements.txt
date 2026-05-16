@@ -4,5 +4,6 @@ httpx>=0.26
 pydantic>=2.6
 PyYAML>=6.0
 nemoguardrails[openai]>=0.21,<0.22
+dataclasses-json>=0.6
 openai>=1.0
 langchain-openai>=0.1,<2.0

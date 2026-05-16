@@ -30,10 +30,12 @@ configs/policies/caif_policy.yaml
 
 | Mode | Description |
 |---|---|
-| `raw` | Agent without a guard |
-| `nemo` | Agent behind NeMo Guardrails baseline |
-| `llama_guard` | Agent behind Llama Guard baseline |
+| `raw` | Agent without a guard (baseline) |
+| `nemo` | Agent behind NVIDIA NeMo Guardrails (default self-check input/output rails) |
+| `llama_guard` | Agent behind Meta Llama Guard (default classification prompts, input + tool stages) |
 | `caif` | Agent behind CAIF-Guard |
+
+The `nemo` and `llama_guard` modes use their stock configurations without project-specific tuning, so the comparison reflects each method as it ships, not a hand-tailored variant.
 
 ## Configuration
 
@@ -51,18 +53,26 @@ Main configuration files:
 ## Requirements
 
 - Docker with Compose
-- Ollama reachable from containers
-- Local models:
+- Ollama reachable from containers (default `http://host.docker.internal:11434`)
+- ~12 GB free VRAM recommended (target model up to 7B + guard model `llama3.2:3b` may run in parallel)
+
+Target models used in the current benchmark matrix (`configs/models.yaml`):
 
 ```sh
 ollama pull llama3.2:3b
-ollama pull qwen2.5:3b-instruct
 ollama pull gemma2:2b
-ollama pull llama-guard3:1b
-ollama pull llama3.2:1b
+ollama pull deepseek-coder:6.7b
+ollama pull qwen3.5:2b
+ollama pull falcon3:3b
+ollama pull hermes3:3b
+ollama pull openchat:7b
+ollama pull granite3.3:2b
+ollama pull yi:6b
 ```
 
-If Ollama is not available at `http://host.docker.internal:11434`, update:
+`llama3.2:3b` is reused as the guard model for both `llama_guard` and `nemo` (see `configs/runtime.yaml`, `guard_models`).
+
+If Ollama is not reachable at the default URL, update `ollama_base_url` in:
 
 ```text
 configs/runtime.yaml
@@ -90,6 +100,18 @@ PowerShell helper:
 ```sh
 pwsh scripts/run_full.ps1
 ```
+
+## Evaluation methodology
+
+The benchmark combines three independent sources of measurement, all driven by the same matrix of target models × runtime modes:
+
+| Source | Configuration | What it measures |
+|---|---|---|
+| Internal agent scenarios | `configs/eval/scenarios.yaml` | Real tool-using agent behaviour (benign + attack), with per-stage guard decisions and per-tool action audit |
+| Promptfoo static red-team | `configs/promptfoo/static_template.yaml` | Black-box HTTP checks against the gateway with literal `not-contains` assertions; identical for every mode |
+| Garak prompt-injection scan | `configs/garak/benchmark.yaml` | Standard `promptinject.HijackHateHumans` + `promptinject.HijackKillHumans` probes |
+
+All modes are evaluated on the same scenarios, the same Promptfoo assertions, and the same Garak probes. The Promptfoo assertion set contains no checks tied to internal rules of any specific guard.
 
 ## Reports
 
